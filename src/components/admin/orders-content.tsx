@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useI18n } from "@/lib/i18n/context"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { RefundButton } from "@/components/admin/refund-button"
@@ -9,6 +11,7 @@ import { CopyButton } from "@/components/copy-button"
 import { ClientDate } from "@/components/client-date"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { AdminOrderActions } from "@/components/admin/order-actions"
 
 interface Order {
     orderId: string
@@ -22,10 +25,48 @@ interface Order {
     createdAt: Date | null
 }
 
-export function AdminOrdersContent({ orders }: { orders: Order[] }) {
+function buildUrl(params: Record<string, string | number | undefined | null>) {
+    const sp = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+        if (v === undefined || v === null) return
+        const str = String(v).trim()
+        if (!str) return
+        sp.set(k, str)
+    })
+    const qs = sp.toString()
+    return qs ? `/admin/orders?${qs}` : '/admin/orders'
+}
+
+function exportUrl(params: Record<string, string | number | undefined | null>) {
+    const sp = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+        if (v === undefined || v === null) return
+        const str = String(v).trim()
+        if (!str) return
+        sp.set(k, str)
+    })
+    return `/admin/export/download?${sp.toString()}`
+}
+
+export function AdminOrdersContent({
+    orders,
+    total,
+    page,
+    pageSize,
+    query,
+    status,
+}: {
+    orders: Order[]
+    total: number
+    page: number
+    pageSize: number
+    query: string
+    status: string
+}) {
     const { t } = useI18n()
-    const [query, setQuery] = useState("")
-    const [status, setStatus] = useState<string>("all")
+    const router = useRouter()
+    const [queryValue, setQueryValue] = useState(query || "")
+    const [statusValue, setStatusValue] = useState<string>(status || "all")
 
     const getStatusBadgeVariant = (status: string | null) => {
         switch (status) {
@@ -42,23 +83,13 @@ export function AdminOrdersContent({ orders }: { orders: Order[] }) {
         return t(`order.status.${status}`) || status
     }
 
-    const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase()
-        return orders.filter(o => {
-            const statusOk = status === 'all' ? true : (o.status || 'pending') === status
-            if (!statusOk) return false
-            if (!q) return true
-            const hay = [
-                o.orderId,
-                o.username || '',
-                o.email || '',
-                o.productName,
-                o.tradeNo || '',
-                o.cardKey || ''
-            ].join(' ').toLowerCase()
-            return hay.includes(q)
-        })
-    }, [orders, query, status])
+    useEffect(() => {
+        setQueryValue(query || "")
+    }, [query])
+
+    useEffect(() => {
+        setStatusValue(status || "all")
+    }, [status])
 
     const statusOptions = [
         { key: 'all', label: t('common.all') },
@@ -69,6 +100,21 @@ export function AdminOrdersContent({ orders }: { orders: Order[] }) {
         { key: 'cancelled', label: t('order.status.cancelled') },
     ]
 
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    const canPrev = page > 1
+    const canNext = page < totalPages
+    const showingFrom = total === 0 ? 0 : (page - 1) * pageSize + 1
+    const showingTo = Math.min(page * pageSize, total)
+
+    const applyFilters = (next: { q?: string; status?: string; page?: number }) => {
+        router.push(buildUrl({
+            q: next.q ?? queryValue,
+            status: next.status ?? statusValue,
+            page: next.page ?? 1,
+            pageSize,
+        }))
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -77,23 +123,69 @@ export function AdminOrdersContent({ orders }: { orders: Order[] }) {
 
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <Input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    value={queryValue}
+                    onChange={(e) => setQueryValue(e.target.value)}
                     placeholder={t('admin.orders.searchPlaceholder')}
                     className="md:w-[360px]"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') applyFilters({ q: queryValue, page: 1 })
+                    }}
                 />
                 <div className="flex flex-wrap gap-2">
                     {statusOptions.map(s => (
                         <Button
                             key={s.key}
                             type="button"
-                            variant={status === s.key ? 'default' : 'outline'}
+                            variant={statusValue === s.key ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setStatus(s.key)}
+                            onClick={() => {
+                                setStatusValue(s.key)
+                                applyFilters({ status: s.key, page: 1 })
+                            }}
                         >
                             {s.label}
                         </Button>
                     ))}
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <div>
+                    {t('admin.orders.showing', { from: showingFrom, to: showingTo, total })}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button asChild type="button" variant="outline" size="sm">
+                        <a href={exportUrl({ type: 'orders', format: 'csv', q: query, status })}>
+                            {t('admin.orders.exportCsv')}
+                        </a>
+                    </Button>
+                    <Button asChild type="button" variant="outline" size="sm">
+                        <a href={exportUrl({ type: 'orders', format: 'csv', includeSecrets: 1, q: query, status })}>
+                            {t('admin.orders.exportCsvSecrets')}
+                        </a>
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!queryValue.trim() && statusValue === 'all'}
+                        onClick={() => {
+                            setQueryValue("")
+                            setStatusValue("all")
+                            router.push(buildUrl({ page: 1, pageSize }))
+                        }}
+                    >
+                        {t('admin.orders.clearFilters')}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!queryValue.trim() || queryValue.trim() === query}
+                        onClick={() => applyFilters({ q: queryValue, page: 1 })}
+                    >
+                        {t('admin.orders.search')}
+                    </Button>
                 </div>
             </div>
 
@@ -113,9 +205,13 @@ export function AdminOrdersContent({ orders }: { orders: Order[] }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filtered.map(order => (
+                        {orders.map(order => (
                             <TableRow key={order.orderId}>
-                                <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
+                                <TableCell className="font-mono text-xs">
+                                    <Link href={`/admin/orders/${order.orderId}`} className="hover:underline">
+                                        {order.orderId}
+                                    </Link>
+                                </TableCell>
                                 <TableCell>
                                     {order.username ? (
                                         <div className="space-y-0.5">
@@ -162,12 +258,55 @@ export function AdminOrdersContent({ orders }: { orders: Order[] }) {
                                     <ClientDate value={order.createdAt} format="dateTime" />
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <RefundButton order={order} />
+                                    <div className="flex justify-end gap-2">
+                                        <AdminOrderActions order={order} />
+                                        <RefundButton order={order} />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
+            </div>
+
+            <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                    {t('admin.orders.page', { page, totalPages })}
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground mr-2">
+                        <span>{t('admin.orders.pageSize')}:</span>
+                        {[50, 100, 200].map((n) => (
+                            <Button
+                                key={n}
+                                type="button"
+                                variant={pageSize === n ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => router.push(buildUrl({ q: query, status, page: 1, pageSize: n }))}
+                            >
+                                {n}
+                            </Button>
+                        ))}
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!canPrev}
+                        onClick={() => router.push(buildUrl({ q: query, status, page: page - 1, pageSize }))}
+                    >
+                        {t('admin.orders.prev')}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!canNext}
+                        onClick={() => router.push(buildUrl({ q: query, status, page: page + 1, pageSize }))}
+                    >
+                        {t('admin.orders.next')}
+                    </Button>
+                </div>
             </div>
         </div>
     )

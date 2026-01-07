@@ -43,7 +43,15 @@
         "subtitle": "A virtual goods shop for the Linux DO ecosystem",
         "noProducts": "No products available yet.",
         "checkBackLater": "Check back later!",
-        "visitorCount": "Total customers: {{count}}"
+        "visitorCount": "Total customers: {{count}}",
+        "sort": {
+            "title": "Sort",
+            "default": "Default",
+            "stock": "Stock",
+            "sold": "Sold",
+            "priceAsc": "Price ↑",
+            "priceDesc": "Price ↓"
+        }
     },
     "buy": {
         "title": "Product Details",
@@ -90,6 +98,9 @@
     "orders": {
         "title": "My Orders",
         "noOrders": "You haven't placed any orders yet.",
+        "noResults": "No matching orders",
+        "count": "{{count}} orders",
+        "searchPlaceholder": "Search by order id / product...",
         "browseProducts": "Browse Products"
     },
     "admin": {
@@ -162,6 +173,29 @@
             "date": "Date",
             "actions": "Actions",
             "searchPlaceholder": "Search by order / user / email / product / trade...",
+            "showing": "Showing {{from}}-{{to}} of {{total}}",
+            "clearFilters": "Clear",
+            "search": "Search",
+            "page": "Page {{page}} / {{totalPages}}",
+            "pageSize": "Page size",
+            "prev": "Prev",
+            "next": "Next",
+            "view": "View",
+            "markPaid": "Mark Paid",
+            "markDelivered": "Mark Delivered",
+            "cancel": "Cancel",
+            "exportCsv": "Export CSV",
+            "exportCsvSecrets": "Export CSV (secrets)",
+            "confirmMarkPaid": "Mark this order as paid?",
+            "confirmMarkDelivered": "Mark this order as delivered?",
+            "confirmCancel": "Cancel this order? This will release reserved stock if any.",
+            "detailTitle": "Order Detail",
+            "detail": "Details",
+            "email": "Email",
+            "emailPlaceholder": "Optional email",
+            "createdAt": "Created At",
+            "paidAt": "Paid At",
+            "deliveredAt": "Delivered At",
             "refund": "Refund",
             "markRefunded": "Mark Refunded",
             "refundConfirm": "This will open the refund page in a new tab.\n\nSteps:\n1. Complete the refund in the new tab\n2. Verify success in Linux DO Credit dashboard\n3. Return here and click \"Mark Refunded\"\n\nContinue?",

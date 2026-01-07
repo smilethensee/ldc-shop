@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { orders, reviews, settings } from "@/lib/db/schema"
-import { desc } from "drizzle-orm"
+import { and, desc, eq, or, sql } from "drizzle-orm"
 import { getProducts } from "@/lib/db/queries"
 
 function requireAdminUsername(username?: string | null) {
@@ -66,10 +66,27 @@ export async function GET(req: Request) {
   const type = (searchParams.get("type") || "").toLowerCase()
   const format = (searchParams.get("format") || "").toLowerCase()
   const includeSecrets = searchParams.get("includeSecrets") === "1"
+  const q = (searchParams.get("q") || "").trim()
+  const status = (searchParams.get("status") || "all").trim()
 
   try {
     if (type === "orders") {
+      const whereParts: any[] = []
+      if (status !== 'all') whereParts.push(eq(orders.status, status))
+      if (q) {
+        const like = `%${q}%`
+        whereParts.push(or(
+          sql`${orders.orderId} ILIKE ${like}`,
+          sql`${orders.productName} ILIKE ${like}`,
+          sql`COALESCE(${orders.username}, '') ILIKE ${like}`,
+          sql`COALESCE(${orders.email}, '') ILIKE ${like}`,
+          sql`COALESCE(${orders.tradeNo}, '') ILIKE ${like}`
+        ))
+      }
+      const whereExpr = whereParts.length ? and(...whereParts) : undefined
+
       const orderRows = await db.query.orders.findMany({
+        where: whereExpr,
         orderBy: [desc(orders.createdAt)],
       })
       const mapped = orderRows.map((o) => ({

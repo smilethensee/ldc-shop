@@ -34,6 +34,7 @@ export function HomeContent({ products, announcement, visitorCount }: HomeConten
     const { t } = useI18n()
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState("")
+    const [sortKey, setSortKey] = useState<string>("default")
 
     // Extract unique categories
     const categories = useMemo(() => {
@@ -59,8 +60,26 @@ export function HomeContent({ products, announcement, visitorCount }: HomeConten
             )
         }
 
-        return result
-    }, [products, selectedCategory, searchTerm])
+        const sorted = [...result]
+        switch (sortKey) {
+            case 'priceAsc':
+                sorted.sort((a, b) => Number(a.price) - Number(b.price))
+                break
+            case 'priceDesc':
+                sorted.sort((a, b) => Number(b.price) - Number(a.price))
+                break
+            case 'stockDesc':
+                sorted.sort((a, b) => (b.stockCount || 0) - (a.stockCount || 0))
+                break
+            case 'soldDesc':
+                sorted.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
+                break
+            default:
+                break
+        }
+
+        return sorted
+    }, [products, selectedCategory, searchTerm, sortKey])
 
     return (
         <main className="container py-8 md:py-16">
@@ -142,6 +161,32 @@ export function HomeContent({ products, announcement, visitorCount }: HomeConten
                                         onClick={() => setSelectedCategory(category)}
                                     >
                                         {category}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <h2 className="text-lg font-semibold tracking-tight px-1">{t('home.sort.title')}</h2>
+                            <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-4 lg:pb-0 no-scrollbar">
+                                {[
+                                    { key: 'default', label: t('home.sort.default') },
+                                    { key: 'stockDesc', label: t('home.sort.stock') },
+                                    { key: 'soldDesc', label: t('home.sort.sold') },
+                                    { key: 'priceAsc', label: t('home.sort.priceAsc') },
+                                    { key: 'priceDesc', label: t('home.sort.priceDesc') },
+                                ].map(opt => (
+                                    <Button
+                                        key={opt.key}
+                                        type="button"
+                                        variant={sortKey === opt.key ? "default" : "ghost"}
+                                        className={cn(
+                                            "justify-start whitespace-nowrap",
+                                            sortKey === opt.key ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-muted"
+                                        )}
+                                        onClick={() => setSortKey(opt.key)}
+                                    >
+                                        {opt.label}
                                     </Button>
                                 ))}
                             </div>
