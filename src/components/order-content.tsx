@@ -12,6 +12,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { requestRefund } from "@/actions/refund-requests"
 import { toast } from "sonner"
+import { useEffect } from "react"
+import { checkOrderStatus } from "@/actions/order"
+import { useRouter } from "next/navigation"
 
 interface Order {
     orderId: string
@@ -57,6 +60,48 @@ export function OrderContent({ order, canViewKey, isOwner, refundRequest }: Orde
             default: return t('order.waitingPayment')
         }
     }
+
+    // Auto-check status if pending
+    const router = useRouter()
+
+    // Check status on mount and polling
+    useEffect(() => {
+        if (order.status !== 'pending') return
+
+        let mounted = true
+        let intervalId: NodeJS.Timeout
+
+        const check = async () => {
+            try {
+                const result = await checkOrderStatus(order.orderId)
+                if (result.success && (result.status === 'paid' || result.status === 'delivered') && mounted) {
+                    toast.success(t('order.paymentSuccess'))
+                    router.refresh()
+                }
+            } catch (e) {
+                console.error("Auto check failed", e)
+            }
+        }
+
+        // Check immediately
+        check()
+
+        // Poll every 3s for 1 minute (20 times)
+        let attempts = 0
+        intervalId = setInterval(() => {
+            if (attempts > 20) {
+                clearInterval(intervalId)
+                return
+            }
+            attempts++
+            check()
+        }, 3000)
+
+        return () => {
+            mounted = false
+            clearInterval(intervalId)
+        }
+    }, [order.status, order.orderId, router, t])
 
     return (
         <main className="container py-12 max-w-2xl">

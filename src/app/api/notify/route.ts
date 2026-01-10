@@ -58,97 +58,20 @@ async function processNotify(params: Record<string, any>) {
             }
 
             if (order.status === 'pending' || order.status === 'cancelled') {
-                await db.transaction(async (tx) => {
-                    // Atomic update to claim card (Postgres only)
-                    // Finds the first unused card, locks it, and marks it as used
-                    let cardKey: string | undefined;
-                    let supportsReservation = true;
-
-                    try {
-                        const reservedResult = await tx.execute(sql`
-                            UPDATE cards
-                            SET is_used = true,
-                                used_at = NOW(),
-                                reserved_order_id = NULL,
-                                reserved_at = NULL
-                            WHERE reserved_order_id = ${orderId} AND COALESCE(is_used, false) = false
-                            RETURNING card_key
-                        `);
-
-                        cardKey = reservedResult.rows[0]?.card_key as string | undefined;
-                    } catch (error: any) {
-                        const errorString = JSON.stringify(error);
-                        if (
-                            error?.message?.includes('reserved_order_id') ||
-                            error?.message?.includes('reserved_at') ||
-                            errorString.includes('42703')
-                        ) {
-                            supportsReservation = false;
-                        } else {
-                            throw error;
-                        }
+                try {
+                    const { processOrderFulfillment } = await import("@/lib/order-processing");
+                    await processOrderFulfillment(orderId, notifyMoney, tradeNo);
+                } catch (e: any) {
+                    console.error("[Notify] Fulfillment error:", e);
+                    // Don't error the callback if it's already processed or internal error, 
+                    // otherwise payment gateway retries. 
+                    // Ideally we should differentiate idempotent errors vs hard errors.
+                    // But for now, if fulfillment fails, maybe log it.
+                    // If shared validation fails (amount mismatch), processOrderFulfillment throws.
+                    if (e.message.includes('Amount mismatch')) {
+                        return new Response('fail', { status: 400 });
                     }
-
-                    if (!cardKey) {
-                        if (supportsReservation) {
-                            const result = await tx.execute(sql`
-                                UPDATE cards
-                                SET is_used = true,
-                                    used_at = NOW(),
-                                    reserved_order_id = NULL,
-                                    reserved_at = NULL
-                                WHERE id = (
-                                    SELECT id
-                                    FROM cards
-                                    WHERE product_id = ${order.productId}
-                                      AND COALESCE(is_used, false) = false
-                                      AND (reserved_at IS NULL OR reserved_at < NOW() - INTERVAL '1 minute')
-                                    LIMIT 1
-                                    FOR UPDATE SKIP LOCKED
-                                )
-                                RETURNING card_key
-                            `);
-
-                            cardKey = result.rows[0]?.card_key as string | undefined;
-                        } else {
-                            const result = await tx.execute(sql`
-                                UPDATE cards
-                                SET is_used = true, used_at = NOW()
-                                WHERE id = (
-                                    SELECT id
-                                    FROM cards
-                                    WHERE product_id = ${order.productId} AND COALESCE(is_used, false) = false
-                                    LIMIT 1
-                                    FOR UPDATE SKIP LOCKED
-                                )
-                                RETURNING card_key
-                            `);
-
-                            cardKey = result.rows[0]?.card_key as string | undefined;
-                        }
-                    }
-
-                    console.log("[Notify] Card claimed:", cardKey ? "YES" : "NO");
-
-                    if (cardKey) {
-                        await tx.update(orders)
-                            .set({
-                                status: 'delivered',
-                                paidAt: new Date(),
-                                deliveredAt: new Date(),
-                                tradeNo: tradeNo,
-                                cardKey: cardKey
-                            })
-                            .where(eq(orders.orderId, orderId));
-                        console.log("[Notify] Order delivered successfully!");
-                    } else {
-                        // Paid but no stock
-                        await tx.update(orders)
-                            .set({ status: 'paid', paidAt: new Date(), tradeNo: tradeNo })
-                            .where(eq(orders.orderId, orderId));
-                        console.log("[Notify] Order marked as paid (no stock)");
-                    }
-                });
+                }
             }
         }
     }
