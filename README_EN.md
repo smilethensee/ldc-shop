@@ -58,14 +58,11 @@ The database (Vercel Postgres) will be automatically provisioned and linked.
 
 See [`_workers_v2/README.md`](./_workers_v2/README.md) for Wrangler-based deployment and configuration steps.
 
-## ⚠️ Important: Custom Domain Required
+## 💡 Recommendation: Custom Domain
 
-**Do NOT use the default Vercel domain (`*.vercel.app`) for production!**
+While the system supports active order status querying, for the best user experience (instant payment status updates), we still **recommend** binding a custom domain (e.g., `store.yourdomain.com`).
 
-Resulting from the shared nature of `vercel.app` domains, they are often flagged by firewalls or payment gateways as low-reputation. This will cause **Payment Callback (Notify) requests to be blocked**, leading to "Payment Success but Order Pending" issues.
-
-**Solution:**
-After deployment, you MUST bind a **Custom Domain** (e.g., `store.yourdomain.com`) in the Vercel dashboard and use this domain for `NEXT_PUBLIC_APP_URL` and the payment gateway notification URL.
+The shared `vercel.app` domain is sometimes flagged by firewalls or payment gateways, which might delay or block payment callbacks. Using a custom domain avoids these issues.
 
 
 
