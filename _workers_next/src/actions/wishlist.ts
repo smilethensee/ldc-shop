@@ -86,14 +86,18 @@ export async function submitWishlistItem(title: string, description?: string) {
     }
 
     await ensureWishlistTables()
-    await db.run(sql`
+    const result: any = await db.run(sql`
         INSERT INTO wishlist_items (title, description, user_id, username, created_at)
         VALUES (${cleanTitle}, ${cleanDesc || null}, ${userId}, ${username}, (unixepoch() * 1000))
+        RETURNING id
     `)
+    const rows = result?.results || result?.rows || []
+    let id = Number(rows[0]?.id || 0)
 
-    const idResult: any = await db.run(sql`SELECT last_insert_rowid() AS id`)
-    const rows = idResult?.results || idResult?.rows || []
-    const id = Number(rows[0]?.id || 0)
+    // Fallback to meta.last_row_id if RETURNING didn't work (older D1 behavior)
+    if (!id && result?.meta?.last_row_id) {
+        id = Number(result.meta.last_row_id)
+    }
 
     revalidatePath("/")
     revalidatePath("/wishlist")
