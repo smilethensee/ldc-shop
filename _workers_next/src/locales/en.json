@@ -125,6 +125,7 @@
         "shareCopy": "Copy link",
         "shareCopied": "Link copied",
         "shareFailed": "Copy failed",
+        "viewLargeImage": "Tap to enlarge",
         "selectVariant": "Select variant",
         "modal": {
             "price": "Price",

@@ -27,8 +27,10 @@ export function ProductImagePlaceholder({ productId, productName, size = "sm", c
     const Icon = ICONS[Math.abs(h >> 8) % ICONS.length]
     const boxSize = fill
         ? size === "xs"
-            ? "h-full w-full"
-            : "h-full w-full"
+            ? "h-16 w-16"
+            : size === "sm"
+                ? "h-28 w-28 sm:h-32 sm:w-32"
+                : "h-36 w-36 md:h-44 md:w-44"
         : size === "xs"
             ? "h-12 w-12"
             : size === "sm"
@@ -36,10 +38,10 @@ export function ProductImagePlaceholder({ productId, productName, size = "sm", c
                 : "h-28 w-28"
     const iconSize = fill
         ? size === "xs"
-            ? "h-10 w-10"
+            ? "h-6 w-6"
             : size === "sm"
-                ? "h-24 w-24"
-                : "h-32 w-32"
+                ? "h-14 w-14 sm:h-16 sm:w-16"
+                : "h-20 w-20 md:h-24 md:w-24"
         : size === "xs"
             ? "h-5 w-5"
             : size === "sm"

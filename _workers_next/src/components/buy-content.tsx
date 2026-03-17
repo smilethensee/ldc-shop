@@ -1,6 +1,6 @@
 'use client'
 
-import { type TouchEvent, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useI18n } from "@/lib/i18n/context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,7 @@ import {
     DialogTrigger
 } from "@/components/ui/dialog"
 import ReactMarkdown from 'react-markdown'
-import { ChevronLeft, ChevronRight, Loader2, Minus, Plus, Share2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Expand, Loader2, Minus, Plus, Share2 } from "lucide-react"
 import { ProductImagePlaceholder } from "@/components/product-image-placeholder"
 import { toast } from "sonner"
 import Image from "next/image"
@@ -103,7 +103,6 @@ export function BuyContent({
     const [emailConfiguredState, setEmailConfiguredState] = useState(emailConfigured)
     const [metaLoading, setMetaLoading] = useState(true)
     const [metaRefreshSeq, setMetaRefreshSeq] = useState(0)
-    const galleryTouchStartRef = useRef({ x: 0, y: 0 })
 
     const [questionAnswers, setQuestionAnswers] = useState<string[]>([])
     const [questionsVerified, setQuestionsVerified] = useState(false)
@@ -302,27 +301,6 @@ export function BuyContent({
         setSelectedGalleryImage(galleryImages[nextIndex] ?? null)
     }
 
-    const handleGalleryTouchStart = (event: TouchEvent<HTMLElement>) => {
-        const touch = event.changedTouches[0]
-        galleryTouchStartRef.current = {
-            x: touch?.clientX ?? 0,
-            y: touch?.clientY ?? 0,
-        }
-    }
-
-    const handleGalleryTouchEnd = (event: TouchEvent<HTMLElement>) => {
-        if (!canSwitchGallery) return
-        const touch = event.changedTouches[0]
-        const deltaX = (touch?.clientX ?? 0) - galleryTouchStartRef.current.x
-        const deltaY = Math.abs((touch?.clientY ?? 0) - galleryTouchStartRef.current.y)
-        if (Math.abs(deltaX) < 40 || deltaY > 80) return
-        if (deltaX < 0) {
-            showNextGalleryImage()
-            return
-        }
-        showPreviousGalleryImage()
-    }
-
     return (
         <main className="container relative py-8 md:py-16">
             <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -340,16 +318,14 @@ export function BuyContent({
                             <div className="relative">
                                 <div className="grid gap-0 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
                                     <div className="relative flex flex-col border-b border-border/20 p-5 md:p-6 lg:border-b-0 lg:border-r">
-                                        <div
-                                            className="relative flex min-h-[18rem] flex-1 items-center justify-center overflow-hidden rounded-[1.65rem] bg-card/50 p-5 md:min-h-[22rem] md:p-8"
-                                            onTouchStart={handleGalleryTouchStart}
-                                            onTouchEnd={handleGalleryTouchEnd}
-                                        >
+                                        <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-[1.65rem] bg-card/50 p-5 md:p-8">
                                             {activeGalleryImage ? (
                                                 <button
                                                     type="button"
-                                                    className="relative aspect-[4/3] w-full max-w-[32rem] text-left"
+                                                    className="relative aspect-[4/3] w-full max-w-[32rem] cursor-zoom-in text-left"
                                                     onClick={() => setIsGalleryDialogOpen(true)}
+                                                    aria-label={t('buy.viewLargeImage')}
+                                                    title={t('buy.viewLargeImage')}
                                                 >
                                                     <Image
                                                         src={activeGalleryImage}
@@ -357,7 +333,11 @@ export function BuyContent({
                                                         fill
                                                         sizes="(max-width: 1024px) 100vw, 56vw"
                                                         className="object-contain"
+                                                        draggable={false}
                                                     />
+                                                    <div className="absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/35 bg-background/88 text-foreground shadow-sm backdrop-blur">
+                                                        <Expand className="h-4 w-4" />
+                                                    </div>
                                                 </button>
                                             ) : (
                                                 <div className="flex h-full items-center justify-center">
@@ -816,11 +796,6 @@ export function BuyContent({
                         <DialogDescription>{t('buy.shareDescription')}</DialogDescription>
                     </DialogHeader>
                     <div className="relative flex min-h-[60vh] items-center justify-center overflow-hidden rounded-2xl bg-muted/20 p-4 md:min-h-[72vh]">
-                        <div
-                            className="absolute inset-0"
-                            onTouchStart={handleGalleryTouchStart}
-                            onTouchEnd={handleGalleryTouchEnd}
-                        />
                         {activeGalleryImage ? (
                             <div className="relative h-[60vh] w-full md:h-[72vh]">
                                 <Image
@@ -829,6 +804,7 @@ export function BuyContent({
                                     fill
                                     sizes="90vw"
                                     className="object-contain"
+                                    draggable={false}
                                 />
                             </div>
                         ) : null}
